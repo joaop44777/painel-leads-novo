@@ -2,7 +2,7 @@
 import { useEffect,useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { LogOut,Search,UserRound,RefreshCw,Bell,Check } from "lucide-react";
-function getSupabase(){return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!)}
+function getSupabase(){return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);}
 type Lead={id:string;name:string|null;phone:string|null;plate:string|null;taxi_app:string|null;received_at:string|null;status:string};
 type Notice={id:string;lead_id:string|null;title:string;message:string;read_at:string|null;created_at:string;user_id:string};
 export default function Leads(){
