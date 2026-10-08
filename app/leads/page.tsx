@@ -125,7 +125,19 @@ export default function Leads() {
     load();
 
     const channel = supabase
-      .channel("notifications-live")
+      .channel("leads-and-notifications-live")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "leads" },
+        (payload) => {
+          const lead = payload.new as Lead;
+          setLeads((items) => {
+            if (items.some((item) => item.id === lead.id)) return items;
+            return [lead, ...items];
+          });
+          setLastUpdated(new Date());
+        }
+      )
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
