@@ -4,10 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft, KeyRound, Mail, CheckCircle2 } from "lucide-react";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
+function getSupabase(){return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);}
 
 export default function SenhaPage() {
   const [email, setEmail] = useState("");
@@ -21,6 +18,7 @@ export default function SenhaPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const supabase=getSupabase();
     let active = true;
     const init = async () => {
       const { data } = await supabase.auth.getSession();
@@ -52,6 +50,7 @@ export default function SenhaPage() {
   async function requestReset(e: React.FormEvent) {
     e.preventDefault();
     setSending(true); setMsg(""); setError("");
+    const supabase=getSupabase();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin + "/senha?mode=reset",
     });
@@ -73,6 +72,7 @@ export default function SenhaPage() {
       setSending(false);
       return;
     }
+    const supabase=getSupabase();
     const { error } = await supabase.auth.updateUser({ password });
     if (error) setError(error.message);
     else {
