@@ -77,10 +77,17 @@ export default function Leads() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [darkMode, setDarkMode] = useState(true);\n  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [activeSection, setActiveSection] = useState<"parados" | "atendidos">("parados");
 
-  useEffect(() => {\n    if (typeof window !== "undefined" && "Notification" in window) {\n      setNotificationsEnabled(Notification.permission === "granted");\n    }\n  }, []);\n\n  async function load() {
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotificationsEnabled(Notification.permission === "granted");
+    }
+  }, []);
+
+  async function load() {
     const supabase = getSupabase();
     setLoading(true);
 
@@ -153,7 +160,8 @@ export default function Leads() {
 
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
-    const permission = await Notification.requestPermission();\n    setNotificationsEnabled(permission === "granted");
+    const permission = await Notification.requestPermission();
+    setNotificationsEnabled(permission === "granted");
     if (permission !== "granted") return;
 
     const reg = await navigator.serviceWorker.register("/sw.js");
