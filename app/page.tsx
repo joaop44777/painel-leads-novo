@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Mail, ShieldCheck, ArrowRight, LockKeyhole, CheckCircle2 } from "lucide-react";
 
@@ -24,7 +25,11 @@ export default function Home() {
     });
   }, []);
 
-  async function login(e: React.FormEvent) {
+  function focusEmail() {
+    document.querySelector('input[type="email"]')?.focus();
+  }
+
+  async function login(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setMsg("");
@@ -75,7 +80,7 @@ export default function Home() {
 
           <button className="forgot-link" onClick={() => window.location.href="/senha"}>Esqueci minha senha</button>
 
-          <button type="button" className="sync-box sync-button" onClick={() => { setSetupMode(true); (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.focus(); }}>
+          <button type="button" className="sync-box sync-button" onClick={() => { setSetupMode(true); focusEmail(); }}>
             <div className="sync-icon"><Mail size={19} /></div>
             <div className="sync-copy">
               <strong>Primeiro acesso?</strong>
