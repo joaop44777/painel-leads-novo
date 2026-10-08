@@ -312,7 +312,7 @@ export default function Leads() {
 
       <div className="notification-status">
         <span className="notification-live-dot" />
-        <strong>Notificações {("Notification" in window && Notification.permission === "granted") ? "ativadas" : "desativadas"}</strong>
+        <strong>Notificações {notificationsEnabled ? "ativadas" : "desativadas"}</strong>
         <button className="notification-enable" onClick={enablePush}>Ativar notificações</button>
         <button className="theme-toggle" onClick={() => setDarkMode(v => !v)}>{darkMode ? "☀ Claro" : "☾ Escuro"}</button>
       </div>
