@@ -1,27 +1,96 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Mail, ShieldCheck, ArrowRight, UserRound } from "lucide-react";
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
-export default function Home(){
- const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [loading,setLoading]=useState(false); const [msg,setMsg]=useState("");
- useEffect(()=>{if(supabase) supabase.auth.getSession().then(({data})=>{if(data.session) window.location.href="/leads"})},[]);
- async function login(e:React.FormEvent){e.preventDefault();setLoading(true);setMsg("");
-  if(!supabase){setMsg("Configure as variáveis do Supabase no Vercel.");setLoading(false);return}
-  const {error}=await supabase.auth.signInWithPassword({email,password});
-  if(error)setMsg(error.message);else window.location.href="/leads";setLoading(false);
- }
- return <main className="auth"><section className="auth-card">
-   <div className="brand"><div className="brand-icon"><Mail size={24}/></div><div><strong>Painel de Leads</strong><span>Receba e organize seus leads</span></div></div>
-   <h1>Entrar</h1><p className="muted">Use o e-mail que recebe os leads.</p>
-   <form onSubmit={login}>
-    <label>E-mail<input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" required/></label>
-    <label>Senha<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" required/></label>
-    {msg&&<div className="error">{msg}</div>}
-    <button disabled={loading}>{loading?"Entrando...":"Entrar"} <ArrowRight size={18}/></button>
-   </form>
-   <div className="secure"><ShieldCheck size={17}/><span>Acesso protegido pelo Supabase Auth</span></div>
- </section></main>
+import { Mail, ShieldCheck, ArrowRight, LockKeyhole, CheckCircle2 } from "lucide-react";
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+  );
+}
+
+export default function Home() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    getSupabase().auth.getSession().then(({ data }) => {
+      if (data.session) window.location.href = "/leads";
+    });
+  }, []);
+
+  async function login(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setMsg("");
+    const { error } = await getSupabase().auth.signInWithPassword({ email, password });
+    if (error) {
+      setMsg("E-mail ou senha incorretos. Confira seus dados e tente novamente.");
+      setLoading(false);
+      return;
+    }
+    window.location.href = "/leads";
+  }
+
+  return (
+    <main className="login-page">
+      <div className="login-glow" />
+      <section className="login-shell">
+        <div className="login-brand">
+          <div className="login-logo"><Mail size={25} /></div>
+          <div>
+            <strong>PAINEL DE LEADS</strong>
+            <span>Monitoramento automático</span>
+          </div>
+        </div>
+
+        <div className="login-card">
+          <div className="login-card-top">
+            <div className="login-badge"><LockKeyhole size={16} /> Acesso seguro</div>
+            <h1>Bem-vindo</h1>
+            <p>Entre com o e-mail que recebe seus leads para acessar seu painel.</p>
+          </div>
+
+          <form onSubmit={login} className="login-form">
+            <label>
+              E-MAIL
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required />
+            </label>
+            <label>
+              SENHA
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+            </label>
+
+            {msg && <div className="login-error">{msg}</div>}
+
+            <button className="login-submit" disabled={loading}>
+              {loading ? "Entrando..." : "Entrar no painel"} <ArrowRight size={17} />
+            </button>
+          </form>
+
+          <button className="forgot-link" onClick={() => window.location.href="/senha"}>Esqueci minha senha</button>
+
+          <div className="sync-box">
+            <div className="sync-icon"><Mail size={19} /></div>
+            <div className="sync-copy">
+              <strong>Primeiro acesso?</strong>
+              <span>Conecte agora o Gmail que vai receber seus leads.</span>
+            </div>
+          </div>
+
+          <div className="login-secure">
+            <ShieldCheck size={16} />
+            <span>Autenticação protegida pelo Supabase</span>
+            <CheckCircle2 size={14} />
+          </div>
+        </div>
+
+        <p className="login-footer">Cada conta é vinculada ao seu próprio e-mail do Google.</p>
+      </section>
+    </main>
+  );
 }
