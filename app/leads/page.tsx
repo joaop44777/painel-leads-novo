@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { Bell, LogOut, RefreshCw, Search, SlidersHorizontal, Check, ChevronDown } from "lucide-react";
+import {
+  Bell,
+  Check,
+  ChevronDown,
+  Filter,
+  LogOut,
+  RefreshCw,
+  Search,
+  Settings,
+  X,
+} from "lucide-react";
 
 function getSupabase() {
   return createClient(
@@ -34,12 +44,28 @@ type Notice = {
 };
 
 const statusLabels: Record<string, string> = {
-  novo: "Novo",
-  em_atendimento: "Em atendimento",
-  contatado: "Contatado",
-  convertido: "Convertido",
+  novo: "Parado",
+  em_atendimento: "Atendido",
+  contatado: "Atendido",
+  convertido: "Atendido",
   perdido: "Perdido",
 };
+
+function formatDate(value: string | null) {
+  if (!value) return "Data não informada";
+  return new Date(value).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatPhone(value: string | null) {
+  if (!value) return "Não informado";
+  return value;
+}
 
 export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -50,12 +76,14 @@ export default function Leads() {
   const [status, setStatus] = useState("todos");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   async function load() {
     const supabase = getSupabase();
     setLoading(true);
 
     const { data: auth } = await supabase.auth.getUser();
+
     if (!auth.user) {
       window.location.href = "/";
       return;
@@ -66,7 +94,9 @@ export default function Leads() {
     const [{ data: ls }, { data: ns }] = await Promise.all([
       supabase
         .from("leads")
-        .select("id,name,phone,email,plate,taxi_app,received_at,sender_email,status")
+        .select(
+          "id,name,phone,email,plate,taxi_app,received_at,sender_email,status"
+        )
         .order("received_at", { ascending: false }),
       supabase
         .from("notifications")
@@ -77,6 +107,7 @@ export default function Leads() {
 
     setLeads(ls || []);
     setNotices(ns || []);
+    setLastUpdated(new Date());
     setLoading(false);
   }
 
@@ -92,13 +123,17 @@ export default function Leads() {
         async (payload) => {
           const n = payload.new as Notice;
           const { data: auth } = await supabase.auth.getUser();
+
           if (n.user_id !== auth.user?.id) return;
 
           setNotices((items) => [n, ...items].slice(0, 30));
           setNotificationsOpen(true);
 
           if ("Notification" in window && Notification.permission === "granted") {
-            new Notification(n.title, { body: n.message });
+            new Notification(n.title, {
+              body: n.message,
+              icon: "/icon-192.png",
+            });
           }
 
           load();
@@ -113,6 +148,7 @@ export default function Leads() {
 
   async function enablePush() {
     const supabase = getSupabase();
+
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
     const permission = await Notification.requestPermission();
@@ -121,6 +157,7 @@ export default function Leads() {
     const reg = await navigator.serviceWorker.register("/sw.js");
     const keyRes = await fetch("/api/push/vapid-public");
     const { publicKey } = await keyRes.json();
+
     if (!publicKey) return;
 
     const b64 = (value: string) =>
@@ -130,6 +167,7 @@ export default function Leads() {
       );
 
     let sub = await reg.pushManager.getSubscription();
+
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -138,6 +176,7 @@ export default function Leads() {
     }
 
     const { data } = await supabase.auth.getSession();
+
     if (data.session) {
       await fetch("/api/push/subscribe", {
         method: "POST",
@@ -155,16 +194,35 @@ export default function Leads() {
     const now = new Date().toISOString();
 
     await supabase.from("notifications").update({ read_at: now }).eq("id", id);
+
     setNotices((items) =>
       items.map((n) => (n.id === id ? { ...n, read_at: now } : n))
     );
+  }
+
+  function openLeadFromNotification(notice: Notice) {
+    if (notice.lead_id) {
+      setNotificationsOpen(false);
+      requestAnimationFrame(() => {
+        document
+          .getElementById("lead-" + notice.lead_id)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+    markRead(notice.id);
   }
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
 
     return leads.filter((lead) => {
-      const matchesStatus = status === "todos" || lead.status === status;
+      const matchesStatus =
+        status === "todos" ||
+        (status === "parados" && lead.status === "novo") ||
+        (status === "atendidos" &&
+          ["em_atendimento", "contatado", "convertido"].includes(lead.status)) ||
+        (status === "perdidos" && lead.status === "perdido");
+
       const haystack = [
         lead.name,
         lead.phone,
@@ -181,29 +239,39 @@ export default function Leads() {
     });
   }, [leads, q, status]);
 
+  const stopped = leads.filter((lead) => lead.status === "novo").length;
+  const attended = leads.filter((lead) =>
+    ["em_atendimento", "contatado", "convertido"].includes(lead.status)
+  ).length;
   const unread = notices.filter((n) => !n.read_at).length;
 
   return (
     <main className="leads-app">
       <header className="leads-header">
         <div className="leads-brand">
-          <div className="brand-square">L</div>
+          <div className="brand-mark">
+            <span>L</span>
+          </div>
           <div>
-            <strong>Painel de Leads</strong>
-            <span>Leads recebidos por e-mail</span>
+            <strong>PAINEL DE LEADS</strong>
+            <span>Monitoramento automático</span>
           </div>
         </div>
 
-        <div className="leads-header-right">
+        <div className="header-actions">
+          <div className="connection-pill">
+            <span className="connection-dot" />
+            Conectado
+          </div>
+
           <button
-            className="header-icon"
-            title="Notificações"
+            className="notification-trigger"
             onClick={() => {
               setNotificationsOpen((value) => !value);
               enablePush();
             }}
           >
-            <Bell size={19} />
+            <Bell size={17} />
             {unread > 0 && <b>{unread}</b>}
           </button>
 
@@ -211,12 +279,20 @@ export default function Leads() {
             <div className="account-avatar">
               {(user?.email?.[0] || "U").toUpperCase()}
             </div>
-            <div>
+            <div className="account-copy">
               <strong>{user?.email || "Usuário"}</strong>
               <span>Conta conectada</span>
             </div>
-            <ChevronDown size={15} />
+            <ChevronDown size={14} />
           </div>
+
+          <button
+            className="icon-action"
+            title="Configurações"
+            onClick={() => (window.location.href = "/configuracao")}
+          >
+            <Settings size={17} />
+          </button>
 
           <button
             className="logout-button"
@@ -225,11 +301,16 @@ export default function Leads() {
               window.location.href = "/";
             }}
           >
-            <LogOut size={16} />
+            <LogOut size={15} />
             Sair
           </button>
         </div>
       </header>
+
+      <div className="notification-status">
+        <span className="notification-live-dot" />
+        <strong>Notificações ativadas</strong>
+      </div>
 
       {notificationsOpen && (
         <aside className="notification-panel">
@@ -238,23 +319,31 @@ export default function Leads() {
               <strong>Notificações</strong>
               <span>{unread} não lidas</span>
             </div>
-            <button onClick={() => setNotificationsOpen(false)}>×</button>
+            <button onClick={() => setNotificationsOpen(false)}>
+              <X size={17} />
+            </button>
           </div>
 
           {notices.length === 0 ? (
-            <div className="notification-empty">Nenhuma notificação.</div>
+            <div className="notification-empty">
+              <Bell size={22} />
+              <strong>Nenhuma notificação</strong>
+              <span>Novos leads aparecerão aqui.</span>
+            </div>
           ) : (
             notices.map((notice) => (
               <button
-                className={"notification-item " + (!notice.read_at ? "unread" : "")}
+                className={
+                  "notification-item " + (!notice.read_at ? "unread" : "")
+                }
                 key={notice.id}
-                onClick={() => markRead(notice.id)}
+                onClick={() => openLeadFromNotification(notice)}
               >
                 <div className="notification-dot" />
                 <div>
                   <strong>{notice.title}</strong>
                   <p>{notice.message}</p>
-                  <small>{new Date(notice.created_at).toLocaleString("pt-BR")}</small>
+                  <small>{formatDate(notice.created_at)}</small>
                 </div>
                 {!notice.read_at && <Check size={15} />}
               </button>
@@ -264,16 +353,56 @@ export default function Leads() {
       )}
 
       <section className="leads-content">
-        <div className="leads-title-row">
+        <div className="page-heading">
           <div>
+            <div className="eyebrow">VISÃO GERAL</div>
             <h1>Leads</h1>
-            <p>Visualize e acompanhe os leads que chegaram para esta conta.</p>
+            <p>Visualize e acompanhe os leads recebidos nesta conta.</p>
           </div>
 
           <button className="refresh-button" onClick={load} disabled={loading}>
-            <RefreshCw size={16} className={loading ? "spin" : ""} />
+            <RefreshCw size={15} className={loading ? "spin" : ""} />
             Atualizar
           </button>
+        </div>
+
+        <div className="summary-grid">
+          <div className="summary-card stopped">
+            <div>
+              <span>Leads parados</span>
+              <strong>{stopped}</strong>
+            </div>
+            <div className="summary-icon">!</div>
+          </div>
+
+          <div className="summary-card attended">
+            <div>
+              <span>Leads atendidos</span>
+              <strong>{attended}</strong>
+            </div>
+            <div className="summary-icon">✓</div>
+          </div>
+
+          <div className="summary-card update">
+            <div>
+              <span>Última atualização</span>
+              <strong>{lastUpdated ? lastUpdated.toLocaleTimeString("pt-BR") : "--:--:--"}</strong>
+            </div>
+            <div className="summary-icon">
+              <RefreshCw size={17} />
+            </div>
+          </div>
+        </div>
+
+        <div className="section-heading">
+          <div>
+            <h2>Leads recebidos</h2>
+            <span>{filtered.length} registros exibidos</span>
+          </div>
+          <div className="live-label">
+            <span />
+            Atualização automática
+          </div>
         </div>
 
         <div className="lead-tools">
@@ -282,15 +411,20 @@ export default function Leads() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por nome, telefone, e-mail, placa..."
+              placeholder="Buscar nome, telefone, placa ou e-mail..."
             />
+            {q && (
+              <button onClick={() => setQ("")} aria-label="Limpar busca">
+                <X size={15} />
+              </button>
+            )}
           </div>
 
           <button
             className={"filter-button " + (filtersOpen ? "active" : "")}
             onClick={() => setFiltersOpen((value) => !value)}
           >
-            <SlidersHorizontal size={16} />
+            <Filter size={16} />
             Filtros
             {status !== "todos" && <span>1</span>}
           </button>
@@ -298,18 +432,31 @@ export default function Leads() {
 
         {filtersOpen && (
           <div className="filters-bar">
-            <label>
-              Status
-              <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="todos">Todos</option>
-                <option value="novo">Novo</option>
-                <option value="em_atendimento">Em atendimento</option>
-                <option value="contatado">Contatado</option>
-                <option value="convertido">Convertido</option>
-                <option value="perdido">Perdido</option>
-              </select>
-            </label>
-
+            <div className="filter-label">STATUS</div>
+            <button
+              className={status === "todos" ? "selected" : ""}
+              onClick={() => setStatus("todos")}
+            >
+              Todos
+            </button>
+            <button
+              className={status === "parados" ? "selected" : ""}
+              onClick={() => setStatus("parados")}
+            >
+              Parados
+            </button>
+            <button
+              className={status === "atendidos" ? "selected" : ""}
+              onClick={() => setStatus("atendidos")}
+            >
+              Atendidos
+            </button>
+            <button
+              className={status === "perdidos" ? "selected" : ""}
+              onClick={() => setStatus("perdidos")}
+            >
+              Perdidos
+            </button>
             <button
               className="clear-filter"
               onClick={() => {
@@ -317,68 +464,73 @@ export default function Leads() {
                 setQ("");
               }}
             >
-              Limpar filtros
+              Limpar
             </button>
           </div>
         )}
 
-        <div className="lead-summary">
-          <strong>{filtered.length}</strong>
-          <span>{filtered.length === 1 ? "lead encontrado" : "leads encontrados"}</span>
-        </div>
-
-        <div className="lead-table-card">
+        <div className="leads-list">
           {loading ? (
-            <div className="table-empty">Carregando leads...</div>
+            <div className="list-empty">
+              <RefreshCw size={20} className="spin" />
+              <strong>Carregando leads...</strong>
+            </div>
           ) : filtered.length === 0 ? (
-            <div className="table-empty">
+            <div className="list-empty">
+              <div className="empty-mark">L</div>
               <strong>Nenhum lead encontrado</strong>
-              <span>Quando um lead chegar, ele aparecerá aqui.</span>
+              <span>
+                Quando um novo lead chegar, ele aparecerá automaticamente aqui.
+              </span>
             </div>
           ) : (
-            <div className="table-scroll">
-              <table className="leads-table">
-                <thead>
-                  <tr>
-                    <th>LEAD</th>
-                    <th>TELEFONE</th>
-                    <th>E-MAIL</th>
-                    <th>PLACA</th>
-                    <th>TAXI / APP</th>
-                    <th>RECEBIDO</th>
-                    <th>STATUS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((lead) => (
-                    <tr id={"lead-" + lead.id} key={lead.id}>
-                      <td>
-                        <div className="lead-name-cell">
-                          <div className="lead-avatar">
-                            {(lead.name?.[0] || "?").toUpperCase()}
-                          </div>
-                          <strong>{lead.name || "Sem nome"}</strong>
-                        </div>
-                      </td>
-                      <td>{lead.phone || "—"}</td>
-                      <td>{lead.email || "—"}</td>
-                      <td>{lead.plate || "—"}</td>
-                      <td>{lead.taxi_app || "—"}</td>
-                      <td>
-                        {lead.received_at
-                          ? new Date(lead.received_at).toLocaleString("pt-BR")
-                          : "—"}
-                      </td>
-                      <td>
-                        <span className={"lead-status " + lead.status}>
-                          {statusLabels[lead.status] || lead.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            filtered.map((lead) => {
+              const statusClass =
+                lead.status === "novo"
+                  ? "stopped"
+                  : lead.status === "perdido"
+                    ? "lost"
+                    : "attended";
+
+              return (
+                <article className="lead-card" id={"lead-" + lead.id} key={lead.id}>
+                  <div className="lead-main">
+                    <div className="lead-avatar">
+                      {(lead.name?.[0] || "?").toUpperCase()}
+                    </div>
+
+                    <div className="lead-identity">
+                      <strong>{lead.name || "Nome não informado"}</strong>
+                      <span>WhatsApp</span>
+                    </div>
+                  </div>
+
+                  <div className="lead-data">
+                    <div>
+                      <small>TELEFONE</small>
+                      <strong>{formatPhone(lead.phone)}</strong>
+                    </div>
+                    <div>
+                      <small>PLACA</small>
+                      <strong>{lead.plate || "Não informada"}</strong>
+                    </div>
+                    <div>
+                      <small>TÁXI / APP</small>
+                      <strong>{lead.taxi_app || "Não informado"}</strong>
+                    </div>
+                    <div className="received">
+                      <small>RECEBIDO EM</small>
+                      <strong>{formatDate(lead.received_at)}</strong>
+                    </div>
+                  </div>
+
+                  <div className={"lead-status " + statusClass}>
+                    <span />
+                    {statusLabels[lead.status] || lead.status}
+                  </div>
+                </article>
+              );
+            })
           )}
         </div>
       </section>
