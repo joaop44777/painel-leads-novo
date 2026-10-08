@@ -77,6 +77,8 @@ export default function Leads() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [darkMode, setDarkMode] = useState(true);
+  const [activeSection, setActiveSection] = useState<"parados" | "atendidos">("parados");
 
   async function load() {
     const supabase = getSupabase();
@@ -235,7 +237,8 @@ export default function Leads() {
         .join(" ")
         .toLowerCase();
 
-      return matchesStatus && (!term || haystack.includes(term));
+      const sectionMatch = activeSection === "parados" ? lead.status === "novo" : ["em_atendimento", "contatado", "convertido"].includes(lead.status);
+      return sectionMatch && matchesStatus && (!term || haystack.includes(term));
     });
   }, [leads, q, status]);
 
@@ -246,7 +249,7 @@ export default function Leads() {
   const unread = notices.filter((n) => !n.read_at).length;
 
   return (
-    <main className="leads-app">
+    <main className={"leads-app " + (darkMode ? "dark" : "")}>
       <header className="leads-header">
         <div className="leads-brand">
           <div className="brand-mark">
@@ -309,7 +312,9 @@ export default function Leads() {
 
       <div className="notification-status">
         <span className="notification-live-dot" />
-        <strong>Notificações ativadas</strong>
+        <strong>Notificações {("Notification" in window && Notification.permission === "granted") ? "ativadas" : "desativadas"}</strong>
+        <button className="notification-enable" onClick={enablePush}>Ativar notificações</button>
+        <button className="theme-toggle" onClick={() => setDarkMode(v => !v)}>{darkMode ? "☀ Claro" : "☾ Escuro"}</button>
       </div>
 
       {notificationsOpen && (
@@ -395,13 +400,10 @@ export default function Leads() {
         </div>
 
         <div className="section-heading">
-          <div>
-            <h2>Leads recebidos</h2>
-            <span>{filtered.length} registros exibidos</span>
-          </div>
-          <div className="live-label">
-            <span />
-            Atualização automática
+          <div><h2>Leads</h2><span>{filtered.length} registros exibidos</span></div>
+          <div className="lead-tabs">
+            <button className={activeSection === "parados" ? "active" : ""} onClick={() => setActiveSection("parados")}>Leads Parados <b>{stopped}</b></button>
+            <button className={activeSection === "atendidos" ? "active" : ""} onClick={() => setActiveSection("atendidos")}>Leads Atendidos <b>{attended}</b></button>
           </div>
         </div>
 
@@ -524,9 +526,8 @@ export default function Leads() {
                     </div>
                   </div>
 
-                  <div className={"lead-status " + statusClass}>
-                    <span />
-                    {statusLabels[lead.status] || lead.status}
+                  <div className="lead-actions">
+                    {lead.status === "novo" ? <button className="attend-button" onClick={async () => { const sb=getSupabase(); await sb.from("leads").update({status:"em_atendimento"}).eq("id",lead.id); await load(); }}>Atendido</button> : <div className={"lead-status " + statusClass}><span />{statusLabels[lead.status] || lead.status}</div>}
                   </div>
                 </article>
               );
