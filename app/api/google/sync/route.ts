@@ -103,7 +103,7 @@ export async function POST(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { data: tokens } = await admin.from("google_tokens").select("*");
+  const { data: tokens } = await admin.rpc("get_google_tokens");
 
   let imported = 0;
   let notified = 0;
