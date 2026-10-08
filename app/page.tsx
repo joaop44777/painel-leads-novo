@@ -16,6 +16,7 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  const [setupMode, setSetupMode] = useState(false);
 
   useEffect(() => {
     getSupabase().auth.getSession().then(({ data }) => {
