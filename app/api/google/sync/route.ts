@@ -1,3 +1,4 @@
+import webpush from "web-push";
 import {createClient} from "@supabase/supabase-js";
 export const runtime="nodejs";
 type Header={name:string;value:string};type Msg={id:string;internalDate?:string;payload?:{headers?:Header[];parts?:any[];body?:{data?:string}}};
@@ -6,7 +7,7 @@ function headers(m:Msg){return Object.fromEntries((m.payload?.headers||[]).map(h
 function body(m:Msg):string{const p=m.payload;if(!p)return "";if(p.body?.data)return b64(p.body.data);for(const x of p.parts||[]){if(x.mimeType==="text/plain"&&x.body?.data)return b64(x.body.data);const v=body(x);if(v)return v}return ""}
 function field(text:string,names:string[]){for(const n of names){const r=new RegExp("^\\s*"+n+"\\s*[:：-]\\s*(.+)$","im").exec(text);if(r)return r[1].trim()}return null}
 async function access(refresh:string){const r=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:process.env.GOOGLE_CLIENT_ID!,client_secret:process.env.GOOGLE_CLIENT_SECRET!,refresh_token:refresh,grant_type:"refresh_token"})});if(!r.ok)throw new Error("google_refresh_failed");return (await r.json()).access_token}
-export async function POST(req:Request){if(req.headers.get("authorization")!=="Bearer "+process.env.SYNC_SECRET)return new Response("Unauthorized",{status:401});
+export async function POST(req:Request){if(req.headers.get("authorization")!=="Bearer "+process.env.CRON_SECRET)return new Response("Unauthorized",{status:401});webpush.setVapidDetails(process.env.VAPID_SUBJECT!,process.env.VAPID_PUBLIC_KEY!,process.env.VAPID_PRIVATE_KEY!);
  const admin=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.SUPABASE_SERVICE_ROLE_KEY!);const {data:tokens}=await admin.from("google_tokens").select("*");
  let imported=0,notified=0;
  for(const t of tokens||[]){try{const token=await access(t.refresh_token);const sr=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread&maxResults=20",{headers:{Authorization:"Bearer "+token}});if(!sr.ok)continue;const list=await sr.json();for(const item of list.messages||[]){const mr=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/"+item.id+"?format=full",{headers:{Authorization:"Bearer "+token}});if(!mr.ok)continue;const m:Msg=await mr.json(),h=headers(m),text=body(m),email=t.google_email;
@@ -14,6 +15,6 @@ export async function POST(req:Request){if(req.headers.get("authorization")!=="B
  const ins=await admin.from("leads").upsert(lead,{onConflict:"external_message_id"}).select("id").single();if(ins.error||!ins.data)continue;
  const {data:profile}=await admin.from("profiles").select("id").eq("email",email).eq("active",true).maybeSingle();if(!profile)continue;
  const rec=await admin.from("lead_recipients").upsert({lead_id:ins.data.id,user_id:profile.id,recipient_email:email},{onConflict:"lead_id,user_id"}).select("id").single();
- if(rec.data){await admin.from("notifications").insert({user_id:profile.id,lead_id:ins.data.id,title:"Novo lead recebido",message:"Um novo lead chegou no seu e-mail: "+(lead.name||"Sem nome")});notified++;imported++}
+ if(rec.data){const title="Novo lead recebido",message="Um novo lead chegou no seu e-mail: "+(lead.name||"Sem nome");await admin.from("notifications").insert({user_id:profile.id,lead_id:ins.data.id,title,message});const {data:subs}=await admin.from("push_subscriptions").select("endpoint,p256dh,auth").eq("user_id",profile.id);for(const sub of subs||[]){try{await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},{title,body:message,url:"/leads"})}catch{await admin.from("push_subscriptions").delete().eq("endpoint",sub.endpoint)}}notified++;imported++}
  } }catch(e){continue}}
  return Response.json({ok:true,imported,notified})}
