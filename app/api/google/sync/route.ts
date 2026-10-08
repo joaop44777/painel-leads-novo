@@ -85,9 +85,13 @@ async function markAsRead(accessToken: string, messageId: string) {
 }
 
 export async function POST(req: Request) {
+  const authorization = req.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET;
+  const automaticSecret = process.env.AUTOMATIC_SYNC_SECRET;
+
   if (
-    req.headers.get("authorization") !==
-    "Bearer " + process.env.CRON_SECRET
+    authorization !== "Bearer " + cronSecret &&
+    authorization !== "Bearer " + automaticSecret
   ) {
     return new Response("Unauthorized", { status: 401 });
   }
