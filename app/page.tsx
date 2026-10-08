@@ -75,7 +75,7 @@ export default function Home() {
 
           <button className="forgot-link" onClick={() => window.location.href="/senha"}>Esqueci minha senha</button>
 
-          <button type="button" className="sync-box sync-button" onClick={() => { setSetupMode(true); document.querySelector<HTMLInputElement>('input[type="email"]')?.focus(); }}>
+          <button type="button" className="sync-box sync-button" onClick={() => { setSetupMode(true); (document.querySelector('input[type="email"]') as HTMLInputElement | null)?.focus(); }}>
             <div className="sync-icon"><Mail size={19} /></div>
             <div className="sync-copy">
               <strong>Primeiro acesso?</strong>
