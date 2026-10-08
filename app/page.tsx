@@ -26,7 +26,12 @@ export default function Home() {
   }, []);
 
   function focusEmail() {
-    document.querySelector('input[type="email"]')?.focus();
+    const input = document.querySelector("input[type=\"email\"]");
+    if (input instanceof HTMLInputElement) input.focus();
+  }
+
+  function goToPasswordReset() {
+    window.location.href = "/senha";
   }
 
   async function login(e: FormEvent) {
@@ -78,9 +83,9 @@ export default function Home() {
             </button>
           </form>
 
-          <button className="forgot-link" onClick={() => window.location.href="/senha"}>Esqueci minha senha</button>
+          <button type="button" className="forgot-link" onClick={goToPasswordReset}>Esqueci minha senha</button>
 
-          <button type="button" className="sync-box sync-button" onClick={() => { setSetupMode(true); focusEmail(); }}>
+          <button type="button" className="sync-box sync-button" onClick={focusEmail}>
             <div className="sync-icon"><Mail size={19} /></div>
             <div className="sync-copy">
               <strong>Primeiro acesso?</strong>
