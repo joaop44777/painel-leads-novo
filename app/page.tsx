@@ -19,7 +19,7 @@ export default function Home() {
 
   useEffect(() => {
     getSupabase().auth.getSession().then(({ data }) => {
-      if (data.session) window.location.href = "/leads";
+      if (data.session) window.location.href = setupMode ? "/configuracao" : "/leads";
     });
   }, []);
 
@@ -74,11 +74,11 @@ export default function Home() {
 
           <button className="forgot-link" onClick={() => window.location.href="/senha"}>Esqueci minha senha</button>
 
-          <div className="sync-box">
+          <button type="button" className="sync-box sync-button" onClick={() => { setSetupMode(true); document.querySelector<HTMLInputElement>('input[type="email"]')?.focus(); }}>
             <div className="sync-icon"><Mail size={19} /></div>
             <div className="sync-copy">
               <strong>Primeiro acesso?</strong>
-              <span>Conecte agora o Gmail que vai receber seus leads.</span>
+              <span>Entre acima e, em seguida, autorize o Gmail no Google.</span>
             </div>
           </div>
 
