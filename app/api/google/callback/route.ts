@@ -15,5 +15,25 @@ export async function GET(req:Request){
  const admin=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.SUPABASE_SERVICE_ROLE_KEY!);
  await admin.from("private.google_tokens").upsert({user_id:userId,google_email:info.email,access_token:tokens.access_token,refresh_token:tokens.refresh_token,expiry_at:new Date(Date.now()+Number(tokens.expires_in||3600)*1000).toISOString(),updated_at:new Date().toISOString()});
  await admin.from("google_connections").upsert({user_id:userId,google_email:info.email,scopes:["gmail.readonly"],connected_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+
+ // Ativa o monitoramento push do Gmail quando o tópico Pub/Sub estiver configurado.
+ // O Gmail passa a avisar o backend assim que a caixa de entrada mudar.
+ if (process.env.GOOGLE_PUBSUB_TOPIC) {
+  try {
+   const watchRes=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/watch",{
+    method:"POST",
+    headers:{Authorization:"Bearer "+tokens.access_token,"content-type":"application/json"},
+    body:JSON.stringify({topicName:process.env.GOOGLE_PUBSUB_TOPIC,labelIds:["INBOX"],labelFilterBehavior:"INCLUDE"})
+   });
+   if(watchRes.ok){
+    const watch=await watchRes.json();
+    await admin.from("google_connections").update({
+     watch_expiration:watch.expiration?new Date(Number(watch.expiration)).toISOString():null,
+     watch_history_id:watch.historyId||null,
+     updated_at:new Date().toISOString()
+    }).eq("user_id",userId);
+   }
+  } catch {}
+ }
  const out=NextResponse.redirect(new URL("/leads",url));out.headers.append("Set-Cookie","google_oauth_state=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");out.headers.append("Set-Cookie","app_user_id=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");return out;
 }
