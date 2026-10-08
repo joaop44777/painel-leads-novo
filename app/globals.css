@@ -134,3 +134,25 @@ button{cursor:pointer}
   .lead-data{grid-template-columns:1fr 1fr}
   .notification-panel{right:10px;top:70px;width:calc(100vw - 20px)}
 }
+
+/* Dark CRM theme and lead workflow */
+.leads-app.dark{background:#0b0e13;color:#e8edf5}
+.leads-app.dark .leads-header{background:#11151c;border-color:#252c37}
+.leads-app.dark .leads-brand strong,.leads-app.dark .page-heading h1,.leads-app.dark .section-heading h2,.leads-app.dark .lead-identity strong,.leads-app.dark .summary-card strong{color:#f4f7fb}
+.leads-app.dark .leads-brand span,.leads-app.dark .page-heading p,.leads-app.dark .summary-card span,.leads-app.dark .section-heading span,.leads-app.dark .lead-data small{color:#7f8b9d}
+.leads-app.dark .connection-pill,.leads-app.dark .account,.leads-app.dark .notification-trigger,.leads-app.dark .icon-action,.leads-app.dark .refresh-button,.leads-app.dark .lead-search,.leads-app.dark .filter-button,.leads-app.dark .filters-bar,.leads-app.dark .lead-card,.leads-app.dark .summary-card,.leads-app.dark .list-empty,.leads-app.dark .notification-panel{background:#11161e;border-color:#27303c;color:#cbd4e1}
+.leads-app.dark .lead-data strong{color:#c5cfdd}
+.leads-app.dark .lead-search input{color:#e8edf5}
+.leads-app.dark .notification-status{color:#c7d0dd}
+.notification-enable,.theme-toggle{height:28px;border:1px solid #dfe5ed;background:#fff;border-radius:7px;padding:0 9px;font-size:9px;font-weight:800;color:#566276}
+.notification-enable:hover,.theme-toggle:hover{border-color:#176ff5;color:#176ff5}
+.leads-app.dark .notification-enable,.leads-app.dark .theme-toggle{background:#171d26;border-color:#303a48;color:#cdd6e3}
+.lead-tabs{display:flex;gap:6px}
+.lead-tabs button{height:34px;border:1px solid #dfe5ed;background:#fff;border-radius:7px;padding:0 12px;color:#687386;font-size:9px;font-weight:800}
+.lead-tabs button.active{background:#176ff5;border-color:#176ff5;color:#fff}
+.lead-tabs b{margin-left:5px;font-size:8px;opacity:.85}
+.lead-actions{display:flex;justify-content:flex-end}
+.attend-button{height:30px;border:1px solid #1f9d61;background:#173d2c;color:#55d694;border-radius:7px;padding:0 12px;font-size:9px;font-weight:900}
+.attend-button:hover{background:#1d5239}
+.leads-app.dark .lead-tabs button{background:#171d26;border-color:#303a48;color:#aeb8c7}
+.leads-app.dark .lead-tabs button.active{background:#176ff5;border-color:#176ff5;color:#fff}
